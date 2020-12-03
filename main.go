@@ -3,7 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/rand"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/blacknvcone/goexercise/database"
@@ -195,6 +199,56 @@ func main() {
 		http.Error(w, "Only accept POST request", http.StatusBadRequest)
 	}
 
+	handlerQ4CdnUpload := func(w http.ResponseWriter, r *http.Request) {
+		//Check Method
+		if r.Method == "POST" {
+			// Parse our multipart form, 10 << 20 specifies a maximum
+			// upload of 10 MB files.
+			r.ParseMultipartForm(10 << 20)
+			// FormFile returns the first file for the given key `myFile`
+			// it also returns the FileHeader so we can get the Filename,
+			// the Header and the size of the file
+			file, handler, err := r.FormFile("image")
+			if err != nil {
+				fmt.Println("Error Retrieving the File")
+				fmt.Println(err)
+				return
+			}
+			defer file.Close()
+			fmt.Printf("Uploaded File: %+v\n", handler.Filename)
+			fmt.Printf("File Size: %+v\n", handler.Size)
+			fmt.Printf("MIME Header: %+v\n", handler.Header)
+
+			genfilename := strconv.Itoa(rand.Int()) + "_" + handler.Filename
+			resFile, err := os.Create("./storage/" + genfilename)
+			if err != nil {
+				fmt.Println("Error Writing File")
+				fmt.Println(err)
+				return
+			}
+			defer resFile.Close()
+
+			io.Copy(resFile, file)
+			defer resFile.Close()
+
+			res := struct {
+				Link string `json:"link"`
+			}{}
+
+			res.Link = "http://localhost:9000/storage/" + genfilename
+			js, err := json.Marshal(res)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(js)
+			return
+		}
+		http.Error(w, "Only accept POST request", http.StatusBadRequest)
+	}
+
 	//[GET] Question1
 	http.HandleFunc("/challenge/1", handlerQ1)
 
@@ -205,6 +259,11 @@ func main() {
 	http.HandleFunc("/challenge/3", handlerQ3Get)
 	http.HandleFunc("/challenge/3/add", handlerQ3Add)
 	http.HandleFunc("/challenge/3/update", handlerQ3Update)
+
+	//[POST] Question4
+	http.HandleFunc("/challenge/4", handlerQ4CdnUpload)
+	//[GET] Question4
+	http.Handle("/storage/", http.StripPrefix("/storage/", http.FileServer(http.Dir("storage"))))
 
 	fmt.Println("server started at localhost:9000")
 	http.ListenAndServe(":9000", nil)
