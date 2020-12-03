@@ -3,25 +3,29 @@ package models
 import (
 	"math"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 type Profile struct {
-	Base
+	Base     `bson:",inline"`
 	Name     string
 	Age      float64
 	Birthday string
 	Parent   []string
 }
 
-func NewProfile(Name string, Birthday string, Parent []string) *Profile {
-	u := &Profile{
-		Name:     Name,
-		Age:      GenAge(Birthday),
-		Birthday: Birthday,
-		Parent:   Parent,
-	}
+func AddProfile(Id bson.ObjectId, Name string, Birthday string, Parent []string) Profile {
 
-	return u
+	var profile = Profile{}
+	profile.Id = Id
+	profile.CreatedAt = time.Now().Format(time.RFC3339)
+	profile.Birthday = Birthday
+	profile.Age = GenAge(Birthday)
+	profile.Name = Name
+	profile.Parent = Parent
+
+	return profile
 }
 
 func GenAge(Birthday string) float64 {
@@ -34,26 +38,3 @@ func GenAge(Birthday string) float64 {
 	tfinal := math.Floor(tnow.Sub(t1).Hours() / 24 / 365)
 	return tfinal
 }
-
-/*
-type User struct {
-  modelImpl
-  UserName string
-  FullName string
-  Email    string
-}
-
-func NewUser(userName, fullName, email string) *User {
-  u := &User{
-    UserName: userName,
-    FullName: fullName,
-    Email:    email,
-  }
-  u.SetId(userName)
-  return u
-}
-
-func (u *User) GetId() string {
-  return u.UserName
-}
-*/

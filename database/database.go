@@ -1,8 +1,6 @@
 package database
 
 import (
-	"fmt"
-
 	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
 )
@@ -26,7 +24,7 @@ func Initconn() dbox.IConnection {
 		panic("Connect Failed") // Change with your error handling
 	}
 
-	fmt.Println("Connected into database !")
+	//fmt.Println("Connected into database !")
 
 	return conn
 }

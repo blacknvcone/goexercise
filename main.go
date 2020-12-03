@@ -8,16 +8,14 @@ import (
 
 	"github.com/blacknvcone/goexercise/database"
 	"github.com/blacknvcone/goexercise/models"
+	"github.com/eaciit/dbox"
 	_ "github.com/eaciit/dbox/dbc/mongo"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type DatetimeObj struct {
 	Date string
 }
-
-// func init() {
-// 	dbconn.Initconn()
-// }
 
 func main() {
 
@@ -83,6 +81,31 @@ func main() {
 
 	}
 
+	handlerQ3Get := func(w http.ResponseWriter, r *http.Request) {
+		//Check Method
+		if r.Method == "GET" {
+			var dbinter = database.Initconn()
+			q, err := dbinter.NewQuery().From("Profile").Cursor(nil)
+			if err != nil {
+				panic("Query Failed")
+			}
+			defer dbinter.Close()
+
+			profiles := []map[string]interface{}{}
+			q.Fetch(&profiles, 0, false)
+
+			js, err := json.Marshal(profiles)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(js)
+			return
+		}
+		http.Error(w, "Only accept POST request", http.StatusBadRequest)
+	}
+
 	handlerQ3Add := func(w http.ResponseWriter, r *http.Request) {
 
 		//Check Method
@@ -99,7 +122,7 @@ func main() {
 				return
 			}
 
-			profile := models.NewProfile(payload.Name, payload.Birthday, payload.Parent)
+			profile := models.AddProfile(bson.NewObjectId(), payload.Name, payload.Birthday, payload.Parent)
 			js, err := json.Marshal(profile)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -120,6 +143,58 @@ func main() {
 		http.Error(w, "Only accept POST request", http.StatusBadRequest)
 	}
 
+	handlerQ3Update := func(w http.ResponseWriter, r *http.Request) {
+		//Check Method
+		if r.Method == "POST" {
+
+			decoder := json.NewDecoder(r.Body)
+			payload := struct {
+				Id       string   `json:"_id"`
+				Name     string   `json:"name"`
+				Birthday string   `json:"birthday"`
+				Parent   []string `json:"parent"`
+			}{}
+			if err := decoder.Decode(&payload); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			//Search Data
+			var dbinter = database.Initconn()
+			que, err := dbinter.NewQuery().From("Profile").Where(dbox.Eq("_id", bson.ObjectIdHex(payload.Id))).Cursor(nil)
+			if err != nil {
+				panic("Error Executing Query !")
+			}
+
+			profiles := []map[string]interface{}{}
+			que.Fetch(&profiles, 0, false)
+			if len(profiles) == 0 {
+				http.Error(w, "Data Not Found !", http.StatusNotFound)
+				return
+			}
+
+			fmt.Println(profiles)
+			// Updating
+			profile := models.AddProfile(bson.ObjectIdHex(payload.Id), payload.Name, payload.Birthday, payload.Parent)
+			js, err := json.Marshal(profile)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			q := dbinter.NewQuery().From("Profile").SetConfig("multiexec", true).Save()
+			defer dbinter.Close()
+
+			q.Exec(map[string]interface{}{"data": profile})
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(js)
+			return
+
+		}
+		http.Error(w, "Only accept POST request", http.StatusBadRequest)
+	}
+
 	//[GET] Question1
 	http.HandleFunc("/challenge/1", handlerQ1)
 
@@ -127,7 +202,9 @@ func main() {
 	http.HandleFunc("/challenge/2", handlerQ2)
 
 	//[POST] Question3
+	http.HandleFunc("/challenge/3", handlerQ3Get)
 	http.HandleFunc("/challenge/3/add", handlerQ3Add)
+	http.HandleFunc("/challenge/3/update", handlerQ3Update)
 
 	fmt.Println("server started at localhost:9000")
 	http.ListenAndServe(":9000", nil)
