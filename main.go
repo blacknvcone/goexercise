@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -249,6 +250,45 @@ func main() {
 		http.Error(w, "Only accept POST request", http.StatusBadRequest)
 	}
 
+	handlerQ5 := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+
+			return
+		}
+		http.Error(w, "Only accept POST request", http.StatusBadRequest)
+	}
+
+	handlerQ6 := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			decoder := json.NewDecoder(r.Body)
+			payload := struct {
+				Username string `json:"name"`
+			}{}
+			if err := decoder.Decode(&payload); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			resp, err := http.Get("https://api.github.com/users/" + payload.Username)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			defer resp.Body.Close()
+
+			responseData, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+			responseString := string(responseData)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(responseString))
+			return
+		}
+		http.Error(w, "Only accept GET request", http.StatusBadRequest)
+	}
+
 	//[GET] Question1
 	http.HandleFunc("/challenge/1", handlerQ1)
 
@@ -265,6 +305,13 @@ func main() {
 	//[GET] Question4
 	http.Handle("/storage/", http.StripPrefix("/storage/", http.FileServer(http.Dir("storage"))))
 
+	//[POST] Question5
+	http.HandleFunc("/challenge/5", handlerQ5)
+
+	//[POST] Question6
+	http.HandleFunc("/challenge/6", handlerQ6)
+
 	fmt.Println("server started at localhost:9000")
 	http.ListenAndServe(":9000", nil)
+
 }
