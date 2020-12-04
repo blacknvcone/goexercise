@@ -8,9 +8,12 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
+	"github.com/aquilax/go-perlin"
 	"github.com/blacknvcone/goexercise/database"
 	"github.com/blacknvcone/goexercise/models"
 	"github.com/eaciit/dbox"
@@ -252,7 +255,54 @@ func main() {
 
 	handlerQ5 := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
+			decoder := json.NewDecoder(r.Body)
+			payload := struct {
+				X float64 `json:"x_max_val"`
+				Y float64 `json:"y_max_val"`
+			}{}
+			if err := decoder.Decode(&payload); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
+			const (
+				alpha       = 2.
+				beta        = 2.
+				n           = 1
+				seed  int64 = 100
+			)
+
+			perlins := []float64{}
+			//Setting Maximum Core CPU Usage
+			runtime.GOMAXPROCS(2)
+
+			var wg sync.WaitGroup
+			wg.Add(int(payload.X))
+
+			p := perlin.NewPerlin(alpha, beta, n, seed)
+			for x := 0.; x < payload.X; x++ {
+				//Splitting With Go Routine For Better Perfomance
+				go func() {
+					defer wg.Done()
+					for y := 0.; y < payload.Y; y++ {
+						compute := p.Noise2D(x/10, y/10)
+						perlins = append(perlins, compute)
+
+						//fmt.Printf("%0.0f\t%0.0f\t%0.4f\n", x, y, compute)
+					}
+				}()
+			}
+
+			wg.Wait()
+
+			js, err := json.Marshal(perlins)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(js)
 			return
 		}
 		http.Error(w, "Only accept POST request", http.StatusBadRequest)
