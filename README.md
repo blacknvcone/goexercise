@@ -35,16 +35,18 @@ These instructions will get you a copy of the project up and running on your loc
 * MongoDB <= 3.x
 
 ### API Documentation
-* Follow this link below :
+* Follow this link below : </br>
   https://documenter.getpostman.com/view/6636020/TVmQcbEP#aa3a7ae2-2a61-45d2-827f-526eb6d42cf9
 
+### Mongo DB Config
+* To change  value of engine , you can edit at <b>"database/database.go"</b>
 ### Running Apps
-* Make sure your Mongo DB Instance was started.
+* Make sure your Mongo DB Instance was started before running the apps.
 * Just run file "main.go" with syntax
 
 <pre>
     <code>
-      go run main.go
+      go run <b>main.go</b>
     </code>
 </pre>
 
